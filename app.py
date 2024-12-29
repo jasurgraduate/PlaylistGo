@@ -1,9 +1,18 @@
 import sys
 import requests
 import pandas as pd
-from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidgetItem, QMessageBox
-from PyQt6.QtCore import QThread, pyqtSignal, QTimer
+from openpyxl import load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+from PyQt6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QListWidgetItem,
+    QLabel,
+)
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer, Qt
+from PyQt6.QtGui import QPixmap, QIcon
 from design import Ui_MainWindow
+import os
 
 
 class YouTubeSongManager(QMainWindow):
@@ -33,6 +42,11 @@ class YouTubeSongManager(QMainWindow):
         # Initialize the thread as None (to keep track of it)
         self.search_thread = None
 
+        # Label for displaying messages
+        self.message_label = QLabel("")
+        self.message_label.setStyleSheet("font-size: 16px; color: #FFEB3B;")
+        self.ui.layout.insertWidget(0, self.message_label)
+
     def start_search(self):
         # Disable the button during search
         self.ui.search_button.setEnabled(False)
@@ -48,7 +62,7 @@ class YouTubeSongManager(QMainWindow):
         self.search_thread.results_signal.connect(self.on_search_results)
         self.search_thread.finished.connect(
             self.on_search_finished
-        )  # Connect finished signal
+        )  # Connect finished signals
         self.search_thread.start()
 
     def update_spinner(self):
@@ -71,9 +85,14 @@ class YouTubeSongManager(QMainWindow):
         self.ui.results_list.clear()
         self.search_results = results
 
-        # Display the search results
+        # Display the search results with thumbnails
         for result in results:
             list_item = QListWidgetItem(result["title"])
+            thumbnail = QPixmap()
+            thumbnail.loadFromData(requests.get(result["thumbnail"]).content)
+            list_item.setIcon(
+                QIcon(thumbnail.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio))
+            )
             self.ui.results_list.addItem(list_item)
 
     def on_search_finished(self):
@@ -83,41 +102,68 @@ class YouTubeSongManager(QMainWindow):
     def add_to_excel(self):
         selected_items = self.ui.results_list.selectedItems()
         if not selected_items:
-            QMessageBox.warning(self, "Warning", "Please select at least one song!")
+            self.message_label.setText("Please select at least one song!")
             return
 
         # Use the existing Excel file
-        excel_file = "songs.xlsx"  # Use the uploaded file path
+        excel_file = os.path.join(
+            os.path.dirname(__file__), "songs.xlsx"
+        )  # Use the full path to the file
         try:
-            df = pd.read_excel(excel_file, sheet_name="Active")
+            workbook = load_workbook(excel_file)
+            sheet = workbook["Active"]
         except FileNotFoundError:
-            QMessageBox.critical(
-                self, "Error", "Excel file not found! Please ensure it exists."
+            self.message_label.setText("Excel file not found! Please ensure it exists.")
+            return
+
+        # Find the columns for "Title" and "YouTube Link"
+        title_col = None
+        link_col = None
+        for col in range(1, sheet.max_column + 1):
+            cell_value = sheet.cell(row=1, column=col).value
+            if cell_value == "Title":
+                title_col = col
+            elif cell_value == "YouTube Link":
+                link_col = col
+
+        if title_col is None or link_col is None:
+            self.message_label.setText(
+                "Could not find 'Title' or 'YouTube Link' columns in the Excel sheet."
             )
             return
 
         # Add selected items to the DataFrame
+        new_rows = []
         for item in selected_items:
             for result in self.search_results:
                 if result["title"] == item.text():
-                    # Append to the existing DataFrame
-                    new_row = pd.DataFrame(
-                        {"Title": [result["title"]], "YouTube Link": [result["url"]]}
-                    )
-                    df = pd.concat([df, new_row], ignore_index=True)
+                    new_rows.append([result["title"], result["url"]])
                     break
 
-        # Save DataFrame to Excel while maintaining the current structure
+        # Insert new rows at the top using pandas and openpyxl
         try:
-            with pd.ExcelWriter(
-                excel_file, engine="openpyxl", mode="a", if_sheet_exists="overlay"
-            ) as writer:
-                df.to_excel(writer, index=False, sheet_name="Active")
-            QMessageBox.information(
-                self, "Success", "Songs added to Excel successfully!"
+            df = pd.read_excel(excel_file, sheet_name="Active")
+            new_df = pd.DataFrame(new_rows, columns=["Title", "YouTube Link"])
+            df = pd.concat([new_df, df], ignore_index=True)
+
+            # Clear the existing sheet
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row):
+                for cell in row:
+                    cell.value = None
+
+            # Write the updated DataFrame to the sheet
+            for r_idx, row in enumerate(df.itertuples(index=False, name=None), 2):
+                sheet.cell(row=r_idx, column=title_col, value=row[0])
+                sheet.cell(row=r_idx, column=link_col, value=row[1])
+
+            workbook.save(excel_file)
+            self.ui.add_to_excel_button.setText("Songs added to Excel successfully!")
+            QTimer.singleShot(
+                2000,
+                lambda: self.ui.add_to_excel_button.setText("Add Selected to Excel"),
             )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save to Excel: {e}")
+            self.message_label.setText(f"Failed to save to Excel: {e}")
 
 
 class SearchThread(QThread):
@@ -141,8 +187,11 @@ class SearchThread(QThread):
                 video_title = item["snippet"]["title"]
                 video_id = item["id"]["videoId"]
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
+                thumbnail_url = item["snippet"]["thumbnails"]["high"]["url"]
 
-                results.append({"title": video_title, "url": video_url})
+                results.append(
+                    {"title": video_title, "url": video_url, "thumbnail": thumbnail_url}
+                )
 
             # Emit results signal to update the UI
             self.results_signal.emit(results)
