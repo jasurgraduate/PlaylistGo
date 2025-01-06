@@ -175,7 +175,7 @@ class SearchThread(QThread):
 
     def run(self):
         API_KEY = "AIzaSyDmXg_MlBEvUb3oAtMpj-fi4Fet80b21fM"
-        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={self.search_query}&type=video&maxResults=15&key={API_KEY}"
+        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={self.search_query}&type=video&maxResults=25&key={API_KEY}"
 
         try:
             response = requests.get(url)
