@@ -12,9 +12,117 @@ from PyQt6.QtWidgets import (
     QWidget,
     QLabel,
     QAbstractItemView,
+    QLineEdit,
+    QDialog,
+    QFormLayout,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QMenu,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionButton,
+    QStyleOptionViewItem,
+    QToolButton,
 )
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QCursor
+from PyQt6.QtCore import Qt, QTimer, QRect, QSize
+from PyQt6.QtGui import QCursor, QIcon
+import qtawesome as qta
+
+
+class EditSongDialog(QDialog):
+    def __init__(self, title, link, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Song")
+        self.setFixedSize(500, 300)  # Bigger window dimensions
+
+        self.layout = QFormLayout(self)
+
+        self.title_edit = QLineEdit(self)
+        self.title_edit.setText(title)
+        self.title_edit.setStyleSheet(
+            """
+            QLineEdit {
+                padding: 10px;
+                font-size: 16px;
+            }
+            QLineEdit:hover {
+                border: 1px solid #3c40c6;
+            }
+        """
+        )
+        self.layout.addRow("Title:", self.title_edit)
+
+        self.link_edit = QLineEdit(self)
+        self.link_edit.setText(link)
+        self.link_edit.setStyleSheet(
+            """
+            QLineEdit {
+                padding: 10px;
+                font-size: 16px;
+            }
+            QLineEdit:hover {
+                border: 1px solid #3c40c6;
+            }
+        """
+        )
+        self.layout.addRow("YouTube Link:", self.link_edit)
+
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            self,
+        )
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        self.layout.addWidget(self.buttons)
+
+        self.setStyleSheet(
+            """
+            QDialogButtonBox {
+                padding: 10px;
+            }
+            QDialogButtonBox:hover {
+                background-color: #3c40c6;
+                color: #ffffff;
+            }
+        """
+        )
+
+    def get_data(self):
+        return self.title_edit.text(), self.link_edit.text()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        screen_geometry = QApplication.primaryScreen().geometry()
+        self.move(screen_geometry.center() - self.rect().center())
+
+
+class EditButtonDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        if option.state & QStyle.StateFlag.State_MouseOver:
+            button = QStyleOptionButton()
+            button.rect = QRect(
+                option.rect.right() - 30, option.rect.top(), 30, option.rect.height()
+            )
+            button.icon = qta.icon("fa.edit")
+            button.iconSize = QSize(20, 20)
+            button.state = QStyle.StateFlag.State_Enabled
+            QApplication.style().drawControl(
+                QStyle.ControlElement.CE_PushButton, button, painter
+            )
+
+    def editorEvent(self, event, model, option, index):
+        if event.type() == event.Type.MouseButtonPress:
+            if option.rect.right() - 30 <= event.pos().x() <= option.rect.right():
+                title = index.data(Qt.ItemDataRole.DisplayRole)
+                link = index.data(Qt.ItemDataRole.UserRole)
+                dialog = EditSongDialog(title, link)
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    new_title, new_link = dialog.get_data()
+                    model.setData(index, new_title, Qt.ItemDataRole.DisplayRole)
+                    model.setData(index, new_link, Qt.ItemDataRole.UserRole)
+                return True
+        return super().editorEvent(event, model, option, index)
 
 
 class SongReorderWindow(QMainWindow):
@@ -29,6 +137,7 @@ class SongReorderWindow(QMainWindow):
         # List widget for reordering songs
         self.reorder_list = QListWidget()
         self.reorder_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.reorder_list.setItemDelegate(EditButtonDelegate())
         self.reorder_list.setStyleSheet(
             """
             QListWidget {
@@ -49,6 +158,14 @@ class SongReorderWindow(QMainWindow):
             QListWidget::item:selected {
                 background-color: #ff60c0;
                 color: #ffffff;
+            }
+            QToolButton {
+                border: none;
+                background: transparent;
+            }
+            QToolButton:hover {
+                cursor: pointer;
+                transform: scale(1.2);
             }
         """
         )
@@ -93,8 +210,9 @@ class SongReorderWindow(QMainWindow):
         excel_file = os.path.join(os.path.dirname(__file__), "songs.xlsx")
         try:
             df = pd.read_excel(excel_file, sheet_name="Active")
-            for title in df["Title"]:
+            for title, link in zip(df["Title"], df["YouTube Link"]):
                 list_item = QListWidgetItem(title)
+                list_item.setData(Qt.ItemDataRole.UserRole, link)
                 self.reorder_list.addItem(list_item)
         except FileNotFoundError:
             self.message_label.setText("Excel file not found! Please ensure it exists.")
@@ -104,7 +222,11 @@ class SongReorderWindow(QMainWindow):
     def save_order_to_excel(self):
         # Get the new order of songs from the reorder list
         new_order = [
-            self.reorder_list.item(i).text() for i in range(self.reorder_list.count())
+            (
+                self.reorder_list.item(i).text(),
+                self.reorder_list.item(i).data(Qt.ItemDataRole.UserRole),
+            )
+            for i in range(self.reorder_list.count())
         ]
 
         # Use the existing Excel file
@@ -132,30 +254,12 @@ class SongReorderWindow(QMainWindow):
             )
             return
 
-        # Create a new DataFrame with the new order
-        new_rows = []
-        for title in new_order:
-            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row):
-                if row[title_col - 1].value == title:
-                    new_rows.append([row[title_col - 1].value, row[link_col - 1].value])
-                    break
+        # Update the sheet with the new order
+        for row_idx, (title, link) in enumerate(new_order, start=2):
+            sheet.cell(row=row_idx, column=title_col, value=title)
+            sheet.cell(row=row_idx, column=link_col, value=link)
 
-        # Insert new rows at the top using pandas and openpyxl
         try:
-            df = pd.read_excel(excel_file, sheet_name="Active")
-            new_df = pd.DataFrame(new_rows, columns=["Title", "YouTube Link"])
-            df = pd.concat([new_df, df], ignore_index=True)
-
-            # Clear the existing sheet
-            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row):
-                for cell in row:
-                    cell.value = None
-
-            # Write the updated DataFrame to the sheet
-            for r_idx, row in enumerate(df.itertuples(index=False, name=None), 2):
-                sheet.cell(row=r_idx, column=title_col, value=row[0])
-                sheet.cell(row=r_idx, column=link_col, value=row[1])
-
             workbook.save(excel_file)
             self.message_label.setText("Order saved to Excel successfully!")
         except Exception as e:
