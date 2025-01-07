@@ -27,8 +27,9 @@ class Ui_MainWindow:
         gradient_css = """
             background: qlineargradient(
                 x1: 0, y1: 0, x2: 1, y2: 1, 
-                stop: 0 #282A36, stop: 1 #3E4D67
+                stop: 0 #1e3c72, stop: 1 #2a5298
             );
+            border-radius: 15px;
         """
         self.central_widget.setStyleSheet(gradient_css)
 
@@ -36,20 +37,23 @@ class Ui_MainWindow:
         self.header_label = QLabel("YouTube Song Manager")
         self.header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.header_label.setStyleSheet(
-            "font-size: 30px; font-weight: bold; color: #FFEB3B;"
+            "font-size: 36px; font-weight: bold; color: #ffffff; margin-bottom: 20px;"
         )
         self.layout.addWidget(self.header_label)
 
         # Search Bar Layout
         self.search_layout = QHBoxLayout()
         self.search_label = QLabel("Search YouTube:")
-        self.search_label.setStyleSheet("font-size: 18px; color: #FFEB3B;")
+        self.search_label.setStyleSheet("font-size: 20px; color: #ffffff;")
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Enter song or video name...")
         self.search_input.setStyleSheet(
-            "font-size: 18px; padding: 12px; background-color: #2D2F3B; color: #FFEB3B; border: 2px solid #FFEB3B; border-radius: 5px;"
+            "font-size: 18px; padding: 12px; background-color: #ffffff; color: #000000; border: 2px solid #ffffff; border-radius: 5px;"
         )
-        self.search_button = SearchButton("Search")
+        self.search_button = QPushButton("Search")
+        self.search_button.setStyleSheet(
+            "font-size: 18px; padding: 12px; background-color: #ff6347; color: #ffffff; border-radius: 5px;"
+        )
         self.search_layout.addWidget(self.search_label)
         self.search_layout.addWidget(self.search_input)
         self.search_layout.addWidget(self.search_button)
@@ -59,11 +63,28 @@ class Ui_MainWindow:
 
         self.results_label = QLabel("Search Results:")
         self.results_label.setStyleSheet(
-            "font-size: 20px; font-weight: bold; color: #FFEB3B;"
+            "font-size: 22px; font-weight: bold; color: #ffffff; margin-top: 20px;"
         )
         self.results_list = QListWidget()
         self.results_list.setStyleSheet(
-            "font-size: 16px; padding: 8px; background-color: #3B3F49; color: #FFEB3B; border-radius: 10px;"
+            """
+            font-size: 16px; padding: 8px; background-color: #ffffff; color: #000000; border-radius: 10px;
+            QListWidget::item {
+                margin: 5px;
+                padding: 10px;
+                border-radius: 10px;
+            }
+            QListWidget::item:hover {
+                background-color: rgba(255, 255, 255, 0.7);
+                border: 2px solid #ff6347;
+                border-radius: 10px;
+            }
+            QListWidget::item:selected {
+                background-color: rgba(255, 255, 255, 0.5);
+                border: 20px solid #007BFF;
+                border-radius: 10px;
+            }
+            """
         )
         self.results_list.setIconSize(
             QSize(150, 150)
@@ -76,7 +97,7 @@ class Ui_MainWindow:
         # Add to Excel Button
         self.add_to_excel_button = QPushButton("Add Selected to Excel")
         self.add_to_excel_button.setStyleSheet(
-            "font-size: 18px; padding: 12px; background-color: #007BFF; color: white; border-radius: 5px;"
+            "font-size: 18px; padding: 12px; background-color: #32cd32; color: #ffffff; border-radius: 5px; margin-top: 20px;"
         )
 
         # Add widgets to main layout

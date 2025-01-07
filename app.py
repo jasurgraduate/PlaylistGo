@@ -32,7 +32,7 @@ class YouTubeSongManager(QMainWindow):
         self.search_results = []
 
         # Initialize the custom spinner (QPainter) for the search button
-        self.spinner_angle = 0  # Starting angle for the spinner
+        self.spinner_index = 0  # Starting index for the spinner
         self.spinner_timer = QTimer(self)
         self.spinner_timer.timeout.connect(self.update_spinner)
 
@@ -52,7 +52,10 @@ class YouTubeSongManager(QMainWindow):
         self.ui.search_button.setEnabled(False)
 
         # Start the spinner animation
-        self.spinner_timer.start(50)  # Update spinner every 50ms
+        self.spinner_timer.start(500)  # Update spinner every 500ms
+
+        # Change the button text to blinking dots
+        self.ui.search_button.setText("Searching")
 
         # Run the search process in a separate thread to avoid freezing the UI
         if self.search_thread is not None and self.search_thread.isRunning():
@@ -66,13 +69,10 @@ class YouTubeSongManager(QMainWindow):
         self.search_thread.start()
 
     def update_spinner(self):
-        # Update the angle of the spinner
-        self.spinner_angle += 10
-        if self.spinner_angle >= 360:
-            self.spinner_angle = 0
-
-        # Force a repaint of the search button to show the spinner
-        self.ui.search_button.update()
+        # Update the spinner text
+        dots = ["Searching.", "Searching..", "Searching..."]
+        self.ui.search_button.setText(dots[self.spinner_index])
+        self.spinner_index = (self.spinner_index + 1) % len(dots)
 
     def on_search_results(self, results):
         # Enable the search button back
@@ -80,6 +80,7 @@ class YouTubeSongManager(QMainWindow):
 
         # Stop the spinner animation
         self.spinner_timer.stop()
+        self.ui.search_button.setText("Search")  # Reset the button text
 
         # Clear previous results
         self.ui.results_list.clear()

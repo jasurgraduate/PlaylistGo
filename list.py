@@ -100,20 +100,31 @@ class EditButtonDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
         if option.state & QStyle.StateFlag.State_MouseOver:
-            button = QStyleOptionButton()
-            button.rect = QRect(
+            edit_button = QStyleOptionButton()
+            edit_button.rect = QRect(
+                option.rect.right() - 60, option.rect.top(), 30, option.rect.height()
+            )
+            edit_button.icon = qta.icon("fa.edit")
+            edit_button.iconSize = QSize(20, 20)
+            edit_button.state = QStyle.StateFlag.State_Enabled
+            QApplication.style().drawControl(
+                QStyle.ControlElement.CE_PushButton, edit_button, painter
+            )
+
+            delete_button = QStyleOptionButton()
+            delete_button.rect = QRect(
                 option.rect.right() - 30, option.rect.top(), 30, option.rect.height()
             )
-            button.icon = qta.icon("fa.edit")
-            button.iconSize = QSize(20, 20)
-            button.state = QStyle.StateFlag.State_Enabled
+            delete_button.icon = qta.icon("fa.trash")
+            delete_button.iconSize = QSize(20, 20)
+            delete_button.state = QStyle.StateFlag.State_Enabled
             QApplication.style().drawControl(
-                QStyle.ControlElement.CE_PushButton, button, painter
+                QStyle.ControlElement.CE_PushButton, delete_button, painter
             )
 
     def editorEvent(self, event, model, option, index):
         if event.type() == event.Type.MouseButtonPress:
-            if option.rect.right() - 30 <= event.pos().x() <= option.rect.right():
+            if option.rect.right() - 60 <= event.pos().x() <= option.rect.right() - 30:
                 title = index.data(Qt.ItemDataRole.DisplayRole)
                 link = index.data(Qt.ItemDataRole.UserRole)
                 dialog = EditSongDialog(title, link)
@@ -122,6 +133,15 @@ class EditButtonDelegate(QStyledItemDelegate):
                     model.setData(index, new_title, Qt.ItemDataRole.DisplayRole)
                     model.setData(index, new_link, Qt.ItemDataRole.UserRole)
                 return True
+            elif option.rect.right() - 30 <= event.pos().x() <= option.rect.right():
+                title = index.data(Qt.ItemDataRole.DisplayRole)
+                self.parent().delete_song_by_title(title)
+                return True
+        elif event.type() == event.Type.MouseMove:
+            if option.rect.right() - 60 <= event.pos().x() <= option.rect.right():
+                QApplication.setOverrideCursor(Qt.CursorShape.PointingHandCursor)
+            else:
+                QApplication.restoreOverrideCursor()
         return super().editorEvent(event, model, option, index)
 
 
@@ -137,7 +157,7 @@ class SongReorderWindow(QMainWindow):
         # List widget for reordering songs
         self.reorder_list = QListWidget()
         self.reorder_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.reorder_list.setItemDelegate(EditButtonDelegate())
+        self.reorder_list.setItemDelegate(EditButtonDelegate(self))
         self.reorder_list.setStyleSheet(
             """
             QListWidget {
@@ -264,6 +284,75 @@ class SongReorderWindow(QMainWindow):
             self.message_label.setText("Order saved to Excel successfully!")
         except Exception as e:
             self.message_label.setText(f"Failed to save to Excel: {e}")
+
+    def delete_selected_song(self):
+        # This method can be removed if not used elsewhere
+        pass
+
+    def delete_song_by_title(self, title_to_delete):
+        # Use the existing Excel file
+        excel_file = os.path.join(os.path.dirname(__file__), "songs.xlsx")
+        sheet_name = "Active"
+        title_col_name = "Title"
+        link_col_name = "YouTube Link"
+
+        try:
+            workbook = load_workbook(excel_file)
+            sheet = workbook[sheet_name]
+        except FileNotFoundError:
+            self.message_label.setText("Excel file not found! Please ensure it exists.")
+            return
+
+        # Find the columns for "Title" and "YouTube Link"
+        title_col = None
+        link_col = None
+        for col in range(1, sheet.max_column + 1):
+            cell_value = sheet.cell(row=1, column=col).value
+            if cell_value == title_col_name:
+                title_col = col
+            elif cell_value == link_col_name:
+                link_col = col
+
+        if title_col is None or link_col is None:
+            self.message_label.setText(
+                "Could not find 'Title' or 'YouTube Link' columns in the Excel sheet."
+            )
+            return
+
+        # Find the row to delete
+        row_to_delete = None
+        for row in range(2, sheet.max_row + 1):
+            if sheet.cell(row=row, column=title_col).value == title_to_delete:
+                row_to_delete = row
+                break
+
+        if row_to_delete is None:
+            self.message_label.setText("Could not find the song in the Excel sheet.")
+            return
+
+        # Delete the row and shift remaining rows up
+        sheet.delete_rows(row_to_delete)
+
+        # Shift remaining rows up
+        for row in range(row_to_delete, sheet.max_row + 1):
+            for col in range(1, sheet.max_column + 1):
+                sheet.cell(row=row, column=col).value = sheet.cell(
+                    row=row + 1, column=col
+                ).value
+
+        # Clear the last row
+        for col in range(1, sheet.max_column + 1):
+            sheet.cell(row=sheet.max_row, column=col).value = None
+
+        try:
+            workbook.save(excel_file)
+            self.message_label.setText("Song deleted successfully!")
+            for i in range(self.reorder_list.count()):
+                if self.reorder_list.item(i).text() == title_to_delete:
+                    self.reorder_list.takeItem(i)
+                    break
+        except Exception as e:
+            self.message_label.setText(f"Failed to delete the song: {e}")
 
     def eventFilter(self, source, event):
         if (
