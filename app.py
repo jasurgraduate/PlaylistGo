@@ -13,6 +13,9 @@ from PyQt6.QtCore import QThread, pyqtSignal, QTimer, Qt
 from PyQt6.QtGui import QPixmap, QIcon
 from design import Ui_MainWindow
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class YouTubeSongManager(QMainWindow):
@@ -175,7 +178,7 @@ class SearchThread(QThread):
         self.search_query = search_query
 
     def run(self):
-        API_KEY = "AIzaSyDmXg_MlBEvUb3oAtMpj-fi4Fet80b21fM"
+        API_KEY = os.getenv("YOUTUBE_API_KEY")
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={self.search_query}&type=video&maxResults=25&key={API_KEY}"
 
         try:
