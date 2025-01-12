@@ -3,12 +3,7 @@ import requests
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
-from PyQt6.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QListWidgetItem,
-    QLabel,
-)
+from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidgetItem, QLabel
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer, Qt
 from PyQt6.QtGui import QPixmap, QIcon
 from design import Ui_MainWindow
@@ -27,22 +22,20 @@ class YouTubeSongManager(QMainWindow):
         # Connect buttons and enter key to search
         self.ui.search_button.clicked.connect(self.start_search)
         self.ui.add_to_excel_button.clicked.connect(self.add_to_excel)
-
-        # Connect enter key to search method
         self.ui.search_input.returnPressed.connect(self.start_search)
 
         # List to store search results
         self.search_results = []
 
-        # Initialize the custom spinner (QPainter) for the search button
-        self.spinner_index = 0  # Starting index for the spinner
+        # Initialize the spinner for the search button
+        self.spinner_index = 0
         self.spinner_timer = QTimer(self)
         self.spinner_timer.timeout.connect(self.update_spinner)
 
-        # Set focus on search input field once the window opens
+        # Focus on search input when window opens
         self.ui.search_input.setFocus()
 
-        # Initialize the thread as None (to keep track of it)
+        # Initialize thread tracking
         self.search_thread = None
 
         # Label for displaying messages
@@ -51,45 +44,30 @@ class YouTubeSongManager(QMainWindow):
         self.ui.layout.insertWidget(0, self.message_label)
 
     def start_search(self):
-        # Disable the button during search
         self.ui.search_button.setEnabled(False)
-
-        # Start the spinner animation
-        self.spinner_timer.start(500)  # Update spinner every 500ms
-
-        # Change the button text to blinking dots
+        self.spinner_timer.start(500)
         self.ui.search_button.setText("Searching")
 
-        # Run the search process in a separate thread to avoid freezing the UI
         if self.search_thread is not None and self.search_thread.isRunning():
-            self.search_thread.terminate()  # Terminate any running thread if it's still active
+            self.search_thread.terminate()
 
         self.search_thread = SearchThread(self.ui.search_input.text())
         self.search_thread.results_signal.connect(self.on_search_results)
-        self.search_thread.finished.connect(
-            self.on_search_finished
-        )  # Connect finished signals
+        self.search_thread.finished.connect(self.on_search_finished)
         self.search_thread.start()
 
     def update_spinner(self):
-        # Update the spinner text
         dots = ["Searching.", "Searching..", "Searching..."]
         self.ui.search_button.setText(dots[self.spinner_index])
         self.spinner_index = (self.spinner_index + 1) % len(dots)
 
     def on_search_results(self, results):
-        # Enable the search button back
         self.ui.search_button.setEnabled(True)
-
-        # Stop the spinner animation
         self.spinner_timer.stop()
-        self.ui.search_button.setText("Search")  # Reset the button text
-
-        # Clear previous results
+        self.ui.search_button.setText("Search")
         self.ui.results_list.clear()
         self.search_results = results
 
-        # Display the search results with thumbnails
         for result in results:
             list_item = QListWidgetItem(result["title"])
             thumbnail = QPixmap()
@@ -100,7 +78,6 @@ class YouTubeSongManager(QMainWindow):
             self.ui.results_list.addItem(list_item)
 
     def on_search_finished(self):
-        # This function is called when the search thread finishes
         print("Search completed")
 
     def add_to_excel(self):
@@ -109,10 +86,7 @@ class YouTubeSongManager(QMainWindow):
             self.message_label.setText("Please select at least one song!")
             return
 
-        # Use the existing Excel file
-        excel_file = os.path.join(
-            os.path.dirname(__file__), "songs.xlsx"
-        )  # Use the full path to the file
+        excel_file = os.path.join(os.path.dirname(__file__), "songs.xlsx")
         try:
             workbook = load_workbook(excel_file)
             sheet = workbook["Active"]
@@ -120,7 +94,6 @@ class YouTubeSongManager(QMainWindow):
             self.message_label.setText("Excel file not found! Please ensure it exists.")
             return
 
-        # Find the columns for "Title" and "YouTube Link"
         title_col = None
         link_col = None
         for col in range(1, sheet.max_column + 1):
@@ -136,7 +109,6 @@ class YouTubeSongManager(QMainWindow):
             )
             return
 
-        # Add selected items to the DataFrame
         new_rows = []
         for item in selected_items:
             for result in self.search_results:
@@ -144,18 +116,15 @@ class YouTubeSongManager(QMainWindow):
                     new_rows.append([result["title"], result["url"]])
                     break
 
-        # Insert new rows at the top using pandas and openpyxl
         try:
             df = pd.read_excel(excel_file, sheet_name="Active")
             new_df = pd.DataFrame(new_rows, columns=["Title", "YouTube Link"])
             df = pd.concat([new_df, df], ignore_index=True)
 
-            # Clear the existing sheet
             for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row):
                 for cell in row:
                     cell.value = None
 
-            # Write the updated DataFrame to the sheet
             for r_idx, row in enumerate(df.itertuples(index=False, name=None), 2):
                 sheet.cell(row=r_idx, column=title_col, value=row[0])
                 sheet.cell(row=r_idx, column=link_col, value=row[1])
@@ -197,11 +166,9 @@ class SearchThread(QThread):
                     {"title": video_title, "url": video_url, "thumbnail": thumbnail_url}
                 )
 
-            # Emit results signal to update the UI
             self.results_signal.emit(results)
-
-        except requests.exceptions.RequestException as e:
-            self.results_signal.emit([])  # If error, return empty list
+        except requests.exceptions.RequestException:
+            self.results_signal.emit([])
 
 
 if __name__ == "__main__":
