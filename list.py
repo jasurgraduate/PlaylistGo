@@ -154,6 +154,11 @@ class SongReorderWindow(QMainWindow):
         # Main layout
         self.main_layout = QVBoxLayout()
 
+        # Refresh button
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.clicked.connect(self.refresh_list)
+        self.main_layout.addWidget(self.refresh_button)
+
         # List widget for reordering songs
         self.reorder_list = QListWidget()
         self.reorder_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
@@ -197,7 +202,7 @@ class SongReorderWindow(QMainWindow):
         self.save_order_button = QPushButton("Save Order to Excel")
         self.save_order_button.setStyleSheet(
             """
-            QPushButton {
+                border: none;
                 background-color: #3c40c6;
                 color: #ffffff;
                 padding: 10px;
@@ -224,6 +229,10 @@ class SongReorderWindow(QMainWindow):
         self.setCentralWidget(container)
 
         # Load songs from Excel
+        self.load_songs_from_excel()
+
+    def refresh_list(self):
+        self.reorder_list.clear()
         self.load_songs_from_excel()
 
     def load_songs_from_excel(self):
