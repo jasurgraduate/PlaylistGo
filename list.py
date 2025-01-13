@@ -207,7 +207,6 @@ class SongReorderWindow(QMainWindow):
                 color: #ffffff;
                 padding: 10px;
                 border-radius: 5px;
-            }
             QPushButton:hover {
                 background-color: #575fcf;
             }
