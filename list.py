@@ -33,7 +33,7 @@ class EditSongDialog(QDialog):
     def __init__(self, title, link, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Song")
-        self.setFixedSize(500, 300)  # Bigger window dimensions
+        self.setFixedSize(500, 300)
 
         self.layout = QFormLayout(self)
 
@@ -42,13 +42,17 @@ class EditSongDialog(QDialog):
         self.title_edit.setStyleSheet(
             """
             QLineEdit {
-                padding: 10px;
+                padding: 12px;
                 font-size: 16px;
+                background-color: #4b9e9e;
+                color: #ffffff;
+                border-radius: 5px;
+                border: 1px solid #3498db;
             }
             QLineEdit:hover {
-                border: 1px solid #3c40c6;
+                border: 1px solid #2980b9;
             }
-        """
+            """
         )
         self.layout.addRow("Title:", self.title_edit)
 
@@ -57,13 +61,17 @@ class EditSongDialog(QDialog):
         self.link_edit.setStyleSheet(
             """
             QLineEdit {
-                padding: 10px;
+                padding: 12px;
                 font-size: 16px;
+                background-color: #4b9e9e;
+                color: #ffffff;
+                border-radius: 5px;
+                border: 1px solid #3498db;
             }
             QLineEdit:hover {
-                border: 1px solid #3c40c6;
+                border: 1px solid #2980b9;
             }
-        """
+            """
         )
         self.layout.addRow("YouTube Link:", self.link_edit)
 
@@ -81,10 +89,10 @@ class EditSongDialog(QDialog):
                 padding: 10px;
             }
             QDialogButtonBox:hover {
-                background-color: #3c40c6;
+                background-color: #2980b9;
                 color: #ffffff;
             }
-        """
+            """
         )
 
     def get_data(self):
@@ -149,88 +157,94 @@ class SongReorderWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Reorder Songs")
-        self.setGeometry(100, 100, 800, 600)  # Larger window dimensions
+        self.setGeometry(100, 100, 800, 600)
 
-        # Main layout
         self.main_layout = QVBoxLayout()
 
-        # Refresh button
         self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.setStyleSheet(
+            """
+            QPushButton {
+                padding: 12px 20px;
+                font-size: 16px;
+                background-color: #2980b9;
+                color: #ffffff;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+            }
+            """
+        )
         self.refresh_button.clicked.connect(self.refresh_list)
         self.main_layout.addWidget(self.refresh_button)
 
-        # List widget for reordering songs
         self.reorder_list = QListWidget()
         self.reorder_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.reorder_list.setItemDelegate(EditButtonDelegate(self))
         self.reorder_list.setStyleSheet(
             """
             QListWidget {
-                background-color: #1e272e;
-                color: #d2dae2;
-                padding: 10px;
-                border-radius: 10px;
+                background-color: #2c3e50;
+                color: #ffffff;
+                padding: 12px;
+                border-radius: 8px;
+                border: 1px solid #34495e;
             }
             QListWidget::item {
-                padding: 10px;
-                margin: 5px;
-                border-radius: 5px;
-                background-color: #485460;
+                padding: 12px;
+                margin: 8px;
+                background-color: #34495e;
+                border-radius: 8px;
             }
             QListWidget::item:hover {
-                background-color: #006435;
+                background-color: #1abc9c;
             }
             QListWidget::item:selected {
-                background-color: #ff60c0;
+                background-color: #2980b9;
                 color: #ffffff;
             }
-            QToolButton {
-                border: none;
-                background: transparent;
-            }
-            QToolButton:hover {
-                cursor: pointer;
-                transform: scale(1.2);
-            }
-        """
+            """
         )
         self.reorder_list.viewport().setCursor(QCursor(Qt.CursorShape.OpenHandCursor))
         self.reorder_list.viewport().installEventFilter(self)
         self.main_layout.addWidget(self.reorder_list)
 
-        # Button to save the new order to Excel
         self.save_order_button = QPushButton("Save Order to Excel")
         self.save_order_button.setStyleSheet(
             """
-                border: none;
-                background-color: #3c40c6;
+            QPushButton {
+                padding: 12px 20px;
+                font-size: 16px;
+                background-color: #9b59b6;
                 color: #ffffff;
-                padding: 10px;
+                border: none;
                 border-radius: 5px;
-            QPushButton:hover {
-                background-color: #575fcf;
             }
-        """
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+            """
         )
         self.save_order_button.clicked.connect(self.save_order_to_excel)
         self.main_layout.addWidget(self.save_order_button)
 
-        # Label for displaying messages
         self.message_label = QLabel("")
         self.message_label.setStyleSheet(
-            "font-size: 16px; color: #ffd32a; padding: 10px;"
+            "font-size: 16px; color: #f39c12; padding: 10px;"
         )
         self.main_layout.addWidget(self.message_label)
 
-        # Set the main layout
         container = QWidget()
         container.setLayout(self.main_layout)
         self.setCentralWidget(container)
 
-        # Load songs from Excel
         self.load_songs_from_excel()
 
     def refresh_list(self):
+        self.refresh_button.setText("Refreshed! 🔃")
+        QTimer.singleShot(1000, lambda: self.refresh_button.setText("Refresh"))
         self.reorder_list.clear()
         self.load_songs_from_excel()
 
@@ -248,7 +262,11 @@ class SongReorderWindow(QMainWindow):
             self.message_label.setText(f"Failed to load songs: {e}")
 
     def save_order_to_excel(self):
-        # Get the new order of songs from the reorder list
+        self.save_order_button.setText("Saved! ✅")
+        QTimer.singleShot(
+            1000, lambda: self.save_order_button.setText("Save Order to Excel")
+        )
+
         new_order = [
             (
                 self.reorder_list.item(i).text(),
@@ -257,7 +275,6 @@ class SongReorderWindow(QMainWindow):
             for i in range(self.reorder_list.count())
         ]
 
-        # Use the existing Excel file
         excel_file = os.path.join(os.path.dirname(__file__), "songs.xlsx")
         try:
             workbook = load_workbook(excel_file)
@@ -266,7 +283,6 @@ class SongReorderWindow(QMainWindow):
             self.message_label.setText("Excel file not found! Please ensure it exists.")
             return
 
-        # Find the columns for "Title" and "YouTube Link"
         title_col = None
         link_col = None
         for col in range(1, sheet.max_column + 1):
@@ -282,7 +298,6 @@ class SongReorderWindow(QMainWindow):
             )
             return
 
-        # Update the sheet with the new order
         for row_idx, (title, link) in enumerate(new_order, start=2):
             sheet.cell(row=row_idx, column=title_col, value=title)
             sheet.cell(row=row_idx, column=link_col, value=link)
@@ -293,12 +308,7 @@ class SongReorderWindow(QMainWindow):
         except Exception as e:
             self.message_label.setText(f"Failed to save to Excel: {e}")
 
-    def delete_selected_song(self):
-        # This method can be removed if not used elsewhere
-        pass
-
     def delete_song_by_title(self, title_to_delete):
-        # Use the existing Excel file
         excel_file = os.path.join(os.path.dirname(__file__), "songs.xlsx")
         sheet_name = "Active"
         title_col_name = "Title"
@@ -311,7 +321,6 @@ class SongReorderWindow(QMainWindow):
             self.message_label.setText("Excel file not found! Please ensure it exists.")
             return
 
-        # Find the columns for "Title" and "YouTube Link"
         title_col = None
         link_col = None
         for col in range(1, sheet.max_column + 1):
@@ -327,7 +336,6 @@ class SongReorderWindow(QMainWindow):
             )
             return
 
-        # Find the row to delete
         row_to_delete = None
         for row in range(2, sheet.max_row + 1):
             if sheet.cell(row=row, column=title_col).value == title_to_delete:
@@ -338,17 +346,13 @@ class SongReorderWindow(QMainWindow):
             self.message_label.setText("Could not find the song in the Excel sheet.")
             return
 
-        # Delete the row and shift remaining rows up
         sheet.delete_rows(row_to_delete)
-
-        # Shift remaining rows up
         for row in range(row_to_delete, sheet.max_row + 1):
             for col in range(1, sheet.max_column + 1):
                 sheet.cell(row=row, column=col).value = sheet.cell(
                     row=row + 1, column=col
                 ).value
 
-        # Clear the last row
         for col in range(1, sheet.max_column + 1):
             sheet.cell(row=sheet.max_row, column=col).value = None
 
