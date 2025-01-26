@@ -240,6 +240,9 @@ class SongReorderWindow(QMainWindow):
         container.setLayout(self.main_layout)
         self.setCentralWidget(container)
 
+        self.deleted_songs = []
+        self.undo_stack = []
+
         self.load_songs_from_excel()
 
     def refresh_list(self):
@@ -302,69 +305,46 @@ class SongReorderWindow(QMainWindow):
             sheet.cell(row=row_idx, column=title_col, value=title)
             sheet.cell(row=row_idx, column=link_col, value=link)
 
+        for title, link in self.deleted_songs:
+            for row in range(2, sheet.max_row + 1):
+                if sheet.cell(row=row, column=title_col).value == title:
+                    sheet.delete_rows(row)
+                    break
+
         try:
             workbook.save(excel_file)
             self.message_label.setText("Order saved to Excel successfully!")
+            self.deleted_songs.clear()
         except Exception as e:
             self.message_label.setText(f"Failed to save to Excel: {e}")
 
     def delete_song_by_title(self, title_to_delete):
-        excel_file = os.path.join(os.path.dirname(__file__), "songs.xlsx")
-        sheet_name = "Active"
-        title_col_name = "Title"
-        link_col_name = "YouTube Link"
-
-        try:
-            workbook = load_workbook(excel_file)
-            sheet = workbook[sheet_name]
-        except FileNotFoundError:
-            self.message_label.setText("Excel file not found! Please ensure it exists.")
-            return
-
-        title_col = None
-        link_col = None
-        for col in range(1, sheet.max_column + 1):
-            cell_value = sheet.cell(row=1, column=col).value
-            if cell_value == title_col_name:
-                title_col = col
-            elif cell_value == link_col_name:
-                link_col = col
-
-        if title_col is None or link_col is None:
-            self.message_label.setText(
-                "Could not find 'Title' or 'YouTube Link' columns in the Excel sheet."
-            )
-            return
-
-        row_to_delete = None
-        for row in range(2, sheet.max_row + 1):
-            if sheet.cell(row=row, column=title_col).value == title_to_delete:
-                row_to_delete = row
+        for i in range(self.reorder_list.count()):
+            if self.reorder_list.item(i).text() == title_to_delete:
+                item = self.reorder_list.takeItem(i)
+                self.deleted_songs.append(
+                    (item.text(), item.data(Qt.ItemDataRole.UserRole))
+                )
+                self.undo_stack.append(("delete", item, i))
+                self.message_label.setText(
+                    "Song deleted from GUI. Click 'Save Order to Excel' to confirm."
+                )
                 break
 
-        if row_to_delete is None:
-            self.message_label.setText("Could not find the song in the Excel sheet.")
-            return
-
-        sheet.delete_rows(row_to_delete)
-        for row in range(row_to_delete, sheet.max_row + 1):
-            for col in range(1, sheet.max_column + 1):
-                sheet.cell(row=row, column=col).value = sheet.cell(
-                    row=row + 1, column=col
-                ).value
-
-        for col in range(1, sheet.max_column + 1):
-            sheet.cell(row=sheet.max_row, column=col).value = None
-
-        try:
-            workbook.save(excel_file)
-            self.message_label.setText("Song deleted successfully!")
-            for i in range(self.reorder_list.count()):
-                if self.reorder_list.item(i).text() == title_to_delete:
-                    self.reorder_list.takeItem(i)
-                    break
-        except Exception as e:
-            self.message_label.setText(f"Failed to delete the song: {e}")
+    def keyPressEvent(self, event):
+        if (
+            event.key() == Qt.Key.Key_Z
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
+            if self.undo_stack:
+                action, item, index = self.undo_stack.pop()
+                if action == "delete":
+                    self.reorder_list.insertItem(index, item)
+                    self.deleted_songs.remove(
+                        (item.text(), item.data(Qt.ItemDataRole.UserRole))
+                    )
+                    self.message_label.setText("Undo delete action.")
+        super().keyPressEvent(event)
 
     def eventFilter(self, source, event):
         if (
