@@ -147,8 +147,8 @@ class SearchThread(QThread):
         self.search_query = search_query
 
     def run(self):
-        API_KEY = os.getenv("REACT_APP_YOUTUBE_API_KEY")
-        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={self.search_query}&type=video&maxResults=50&key={API_KEY}"
+        API_KEY = os.getenv("VITE_YOUTUBE_API_KEY")
+        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={self.search_query}&type=video&maxResults=10&key={API_KEY}"
 
         try:
             response = requests.get(url)
