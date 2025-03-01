@@ -2,7 +2,7 @@
     "name": "my playlist ツ 🖤🎧",
     "short_name": "Playlist",
     "description": "Music Player for YouTube.",
-    "start_url": "/",
+    "start_url": "/DJ/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",
